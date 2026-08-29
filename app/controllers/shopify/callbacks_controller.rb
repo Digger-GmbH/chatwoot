@@ -4,9 +4,12 @@ class Shopify::CallbacksController < ApplicationController
   def show
     verify_account!
 
+    # Request expiring offline tokens required for new public Shopify apps (April 2026+).
+    # See https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens/offline-access-tokens
     @response = oauth_client.auth_code.get_token(
       params[:code],
-      redirect_uri: '/shopify/callback'
+      redirect_uri: '/shopify/callback',
+      expiring: 1
     )
 
     handle_response
@@ -28,12 +31,27 @@ class Shopify::CallbacksController < ApplicationController
       access_token: parsed_body['access_token'],
       status: 'enabled',
       reference_id: params[:shop],
-      settings: {
-        scope: parsed_body['scope']
-      }
+      settings: hook_settings_from_token_response
     )
 
     redirect_to shopify_integration_url
+  end
+
+  def hook_settings_from_token_response
+    {
+      scope: parsed_body['scope'],
+      expires_in: parsed_body['expires_in'],
+      expires_on: absolute_expiry(parsed_body['expires_in']),
+      refresh_token: parsed_body['refresh_token'],
+      refresh_token_expires_in: parsed_body['refresh_token_expires_in'],
+      refresh_token_expires_on: absolute_expiry(parsed_body['refresh_token_expires_in'])
+    }.compact
+  end
+
+  def absolute_expiry(expires_in)
+    return if expires_in.blank?
+
+    (Time.current.utc + expires_in.to_i.seconds).to_s
   end
 
   def parsed_body
