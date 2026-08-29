@@ -103,12 +103,13 @@ RSpec.describe Shopify::CallbacksController, type: :request do
 
         hook = Integrations::Hook.last
         expect(hook.access_token).to eq(access_token)
-        expect(hook.settings['scope']).to eq('read_customers,read_orders')
-        expect(hook.settings['refresh_token']).to eq(refresh_token)
-        expect(hook.settings['expires_in']).to eq(3600)
-        expect(hook.settings['expires_on']).to be_present
-        expect(hook.settings['refresh_token_expires_in']).to eq(7_776_000)
-        expect(hook.settings['refresh_token_expires_on']).to be_present
+        expect(hook.settings).to include(
+          'scope' => 'read_customers,read_orders',
+          'refresh_token' => refresh_token,
+          'expires_in' => 3600,
+          'refresh_token_expires_in' => 7_776_000
+        )
+        expect(hook.settings.values_at('expires_on', 'refresh_token_expires_on')).to all(be_present)
         expect(response).to redirect_to(shopify_redirect_uri)
       end
     end
