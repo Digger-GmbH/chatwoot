@@ -96,7 +96,8 @@ class Api::V1::Accounts::Integrations::ShopifyController < Api::V1::Accounts::In
   end
 
   def shopify_session
-    ShopifyAPI::Auth::Session.new(shop: @hook.reference_id, access_token: @hook.access_token)
+    access_token = Integrations::Shopify::AccessTokenService.new(hook: @hook).access_token
+    ShopifyAPI::Auth::Session.new(shop: @hook.reference_id, access_token: access_token)
   end
 
   def shopify_client

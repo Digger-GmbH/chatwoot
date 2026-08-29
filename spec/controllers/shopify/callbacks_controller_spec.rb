@@ -47,7 +47,11 @@ RSpec.describe Shopify::CallbacksController, type: :request do
     context 'when successful' do
       include_context 'with stubbed account'
       before do
-        allow(auth_code_strategy).to receive(:get_token).and_return(token_response)
+        allow(auth_code_strategy).to receive(:get_token).with(
+          code,
+          redirect_uri: '/shopify/callback',
+          expiring: 1
+        ).and_return(token_response)
         stub_request(:post, "https://#{shop}/admin/oauth/access_token")
           .to_return(
             status: 200,
@@ -69,6 +73,42 @@ RSpec.describe Shopify::CallbacksController, type: :request do
         expect(hook.settings).to eq(
           'scope' => 'read_products,write_products'
         )
+        expect(response).to redirect_to(shopify_redirect_uri)
+      end
+    end
+
+    context 'when successful with an expiring offline token' do
+      include_context 'with stubbed account'
+      let(:refresh_token) { SecureRandom.hex(10) }
+      let(:response_body) do
+        {
+          'access_token' => access_token,
+          'scope' => 'read_customers,read_orders',
+          'expires_in' => 3600,
+          'refresh_token' => refresh_token,
+          'refresh_token_expires_in' => 7_776_000
+        }
+      end
+
+      before do
+        allow(auth_code_strategy).to receive(:get_token).with(
+          code,
+          redirect_uri: '/shopify/callback',
+          expiring: 1
+        ).and_return(token_response)
+      end
+
+      it 'stores refresh token and expiry metadata on the hook' do
+        get shopify_callback_path, params: { code: code, state: state, shop: shop }
+
+        hook = Integrations::Hook.last
+        expect(hook.access_token).to eq(access_token)
+        expect(hook.settings['scope']).to eq('read_customers,read_orders')
+        expect(hook.settings['refresh_token']).to eq(refresh_token)
+        expect(hook.settings['expires_in']).to eq(3600)
+        expect(hook.settings['expires_on']).to be_present
+        expect(hook.settings['refresh_token_expires_in']).to eq(7_776_000)
+        expect(hook.settings['refresh_token_expires_on']).to be_present
         expect(response).to redirect_to(shopify_redirect_uri)
       end
     end
