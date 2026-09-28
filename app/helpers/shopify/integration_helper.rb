@@ -6,9 +6,10 @@ module Shopify::IntegrationHelper
   # @param account_id [Integer] The account ID to encode in the token
   # @return [String, nil] The encoded JWT token or nil if client secret is missing
   def generate_shopify_token(account_id)
-    return if client_secret.blank?
+    secret = shopify_client_secret(Account.find_by(id: account_id))
+    return if secret.blank?
 
-    JWT.encode(token_payload(account_id), client_secret, 'HS256')
+    JWT.encode(token_payload(account_id), secret, 'HS256')
   rescue StandardError => e
     Rails.logger.error("Failed to generate Shopify token: #{e.message}")
     nil
@@ -26,19 +27,43 @@ module Shopify::IntegrationHelper
   # @param token [String] The JWT token to verify
   # @return [Integer, nil] The account ID from the token or nil if invalid
   def verify_shopify_token(token)
-    return if token.blank? || client_secret.blank?
+    return if token.blank?
 
-    decode_token(token, client_secret)
+    account = account_from_unverified_token(token)
+    secret = shopify_client_secret(account)
+    return if secret.blank?
+
+    decode_token(token, secret)
   end
 
   private
 
+  def shopify_credentials(account = nil)
+    Shopify::Credentials.for(account)
+  end
+
+  def shopify_client_id(account = nil)
+    shopify_credentials(account).client_id
+  end
+
+  def shopify_client_secret(account = nil)
+    shopify_credentials(account).client_secret
+  end
+
+  # Backward-compatible aliases used by existing controllers/specs.
   def client_id
-    @client_id ||= GlobalConfigService.load('SHOPIFY_CLIENT_ID', nil)
+    shopify_client_id
   end
 
   def client_secret
-    @client_secret ||= GlobalConfigService.load('SHOPIFY_CLIENT_SECRET', nil)
+    shopify_client_secret
+  end
+
+  def account_from_unverified_token(token)
+    payload = JWT.decode(token, nil, false).first
+    Account.find_by(id: payload['sub'])
+  rescue StandardError
+    nil
   end
 
   def decode_token(token, secret)

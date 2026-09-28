@@ -17,6 +17,12 @@ RSpec.describe 'Shopify Integration API', type: :request do
 
   describe 'POST /api/v1/accounts/:account_id/integrations/shopify/auth' do
     let(:shop_domain) { 'test-store.myshopify.com' }
+    let(:administrator) { create(:user, account: account, role: :administrator) }
+
+    before do
+      create(:installation_config, name: 'SHOPIFY_CLIENT_ID', value: 'global-client-id')
+      create(:installation_config, name: 'SHOPIFY_CLIENT_SECRET', value: 'global-client-secret')
+    end
 
     context 'when it is an authenticated user' do
       it 'returns a redirect URL for Shopify OAuth' do
@@ -28,6 +34,19 @@ RSpec.describe 'Shopify Integration API', type: :request do
         expect(response).to have_http_status(:ok)
         expect(response.parsed_body).to have_key('redirect_url')
         expect(response.parsed_body['redirect_url']).to include(shop_domain)
+        expect(response.parsed_body['redirect_url']).to include('client_id=global-client-id')
+      end
+
+      it 'uses account-specific OAuth credentials when configured' do
+        create(:shopify_app_credential, account: account, client_id: 'account-client-id', client_secret: 'account-secret')
+
+        post "/api/v1/accounts/#{account.id}/integrations/shopify/auth",
+             params: { shop_domain: shop_domain },
+             headers: agent.create_new_auth_token,
+             as: :json
+
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body['redirect_url']).to include('client_id=account-client-id')
       end
 
       it 'returns error when shop domain is missing' do
@@ -38,6 +57,19 @@ RSpec.describe 'Shopify Integration API', type: :request do
         expect(response).to have_http_status(:unprocessable_entity)
         expect(response.parsed_body['error']).to eq('Shop domain is required')
       end
+
+      it 'returns error when no OAuth credentials are configured' do
+        InstallationConfig.where(name: %w[SHOPIFY_CLIENT_ID SHOPIFY_CLIENT_SECRET]).delete_all
+        GlobalConfig.clear_cache
+
+        post "/api/v1/accounts/#{account.id}/integrations/shopify/auth",
+             params: { shop_domain: shop_domain },
+             headers: agent.create_new_auth_token,
+             as: :json
+
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(response.parsed_body['error']).to include('credentials are not configured')
+      end
     end
 
     context 'when it is an unauthenticated user' do
@@ -47,6 +79,63 @@ RSpec.describe 'Shopify Integration API', type: :request do
              as: :json
 
         expect(response).to have_http_status(:unauthorized)
+      end
+    end
+  end
+
+  describe 'Shopify credentials API' do
+    let(:administrator) { create(:user, account: account, role: :administrator) }
+
+    describe 'GET /api/v1/accounts/:account_id/integrations/shopify/credentials' do
+      it 'returns account credential state for authenticated users' do
+        create(:shopify_app_credential, account: account, client_id: 'acct-id', client_secret: 'acct-secret')
+
+        get "/api/v1/accounts/#{account.id}/integrations/shopify/credentials",
+            headers: agent.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:ok)
+        expect(response.parsed_body).to include(
+          'client_id' => 'acct-id',
+          'client_secret_configured' => true,
+          'source' => 'account'
+        )
+        expect(response.parsed_body).not_to have_key('client_secret')
+      end
+    end
+
+    describe 'PUT /api/v1/accounts/:account_id/integrations/shopify/credentials' do
+      it 'allows administrators to save account credentials' do
+        put "/api/v1/accounts/#{account.id}/integrations/shopify/credentials",
+            params: { client_id: 'new-id', client_secret: 'new-secret' },
+            headers: administrator.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:ok)
+        expect(account.reload.shopify_app_credential.client_id).to eq('new-id')
+        expect(account.shopify_app_credential.client_secret).to eq('new-secret')
+      end
+
+      it 'rejects agents' do
+        put "/api/v1/accounts/#{account.id}/integrations/shopify/credentials",
+            params: { client_id: 'new-id', client_secret: 'new-secret' },
+            headers: agent.create_new_auth_token,
+            as: :json
+
+        expect(response).to have_http_status(:unauthorized)
+      end
+    end
+
+    describe 'DELETE /api/v1/accounts/:account_id/integrations/shopify/credentials' do
+      it 'allows administrators to remove account credentials' do
+        create(:shopify_app_credential, account: account)
+
+        delete "/api/v1/accounts/#{account.id}/integrations/shopify/credentials",
+               headers: administrator.create_new_auth_token,
+               as: :json
+
+        expect(response).to have_http_status(:no_content)
+        expect(account.reload.shopify_app_credential).to be_nil
       end
     end
   end

@@ -434,6 +434,9 @@ Rails.application.routes.draw do
               collection do
                 post :auth
                 get :orders
+                get :credentials, action: :show_credentials
+                put :credentials, action: :update_credentials
+                delete :credentials, action: :destroy_credentials
               end
             end
             resource :linear, controller: 'linear', only: [] do

@@ -6,6 +6,40 @@
         "TITLE": "Delete Shopify Integration",
         "MESSAGE": "Are you sure you want to delete the Shopify integration?"
       },
+      "CREDENTIALS": {
+        "TITLE": "Shopify app credentials",
+        "DESCRIPTION": "Configure the Client ID and Client Secret from your Shopify custom app for this account. Each account can use its own app when working with multiple stores.",
+        "CLIENT_ID": {
+          "LABEL": "Client ID",
+          "PLACEHOLDER": "Shopify app Client ID",
+          "HELP": "API key from your Shopify Partner custom app"
+        },
+        "CLIENT_SECRET": {
+          "LABEL": "Client Secret",
+          "PLACEHOLDER": "Shopify app Client Secret",
+          "HELP": "API secret key from your Shopify Partner custom app",
+          "CONFIGURED_HELP": "A client secret is already saved. Leave this blank to keep the existing secret."
+        },
+        "SOURCE": {
+          "ACCOUNT": "Using account-specific credentials",
+          "GLOBAL": "Using installation-wide credentials from Super Admin",
+          "NONE": "No Shopify OAuth credentials configured yet"
+        },
+        "GLOBAL_FALLBACK": "Installation-wide credentials are available as a fallback if you clear this account override.",
+        "SAVE": "Save credentials",
+        "CLEAR": "Use installation defaults",
+        "CLEAR_CONFIRM": "Remove account-specific Shopify credentials and fall back to the installation defaults?",
+        "REQUIRED_BEFORE_CONNECT": "Save Shopify app credentials for this account before connecting a store.",
+        "SAVE_SUCCESS": "Shopify credentials saved",
+        "SAVE_ERROR": "Could not save Shopify credentials",
+        "CLEAR_SUCCESS": "Account Shopify credentials removed",
+        "CLEAR_ERROR": "Could not remove Shopify credentials",
+        "LOAD_ERROR": "Could not load Shopify credentials",
+        "VALIDATION": {
+          "CLIENT_ID": "Client ID is required",
+          "CLIENT_SECRET": "Client Secret is required"
+        }
+      },
       "STORE_URL": {
         "TITLE": "Connect Shopify Store",
         "LABEL": "Store URL",

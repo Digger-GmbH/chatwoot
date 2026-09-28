@@ -4,11 +4,14 @@ RSpec.describe Shopify::IntegrationHelper do
   include described_class
 
   describe '#generate_shopify_token' do
-    let(:account_id) { 1 }
+    let(:account) { create(:account) }
+    let(:account_id) { account.id }
     let(:client_secret) { 'test_secret' }
     let(:current_time) { Time.current }
 
     before do
+      allow(GlobalConfigService).to receive(:load).and_call_original
+      allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_ID', nil).and_return('test_client_id')
       allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_SECRET', nil).and_return(client_secret)
       allow(Time).to receive(:current).and_return(current_time)
     end
@@ -19,6 +22,15 @@ RSpec.describe Shopify::IntegrationHelper do
 
       expect(decoded_token['sub']).to eq(account_id)
       expect(decoded_token['iat']).to eq(current_time.to_i)
+    end
+
+    it 'signs the token with account-specific credentials when present' do
+      create(:shopify_app_credential, account: account, client_id: 'account-id', client_secret: 'account-secret')
+
+      token = generate_shopify_token(account_id)
+      decoded_token = JWT.decode(token, 'account-secret', true, algorithm: 'HS256').first
+
+      expect(decoded_token['sub']).to eq(account_id)
     end
 
     context 'when client secret is not configured' do
@@ -42,18 +54,28 @@ RSpec.describe Shopify::IntegrationHelper do
   end
 
   describe '#verify_shopify_token' do
-    let(:account_id) { 1 }
+    let(:account) { create(:account) }
+    let(:account_id) { account.id }
     let(:client_secret) { 'test_secret' }
     let(:valid_token) do
       JWT.encode({ sub: account_id, iat: Time.current.to_i }, client_secret, 'HS256')
     end
 
     before do
+      allow(GlobalConfigService).to receive(:load).and_call_original
+      allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_ID', nil).and_return('test_client_id')
       allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_SECRET', nil).and_return(client_secret)
     end
 
     it 'successfully verifies and returns account_id from valid token' do
       expect(verify_shopify_token(valid_token)).to eq(account_id)
+    end
+
+    it 'verifies tokens signed with account-specific credentials' do
+      create(:shopify_app_credential, account: account, client_id: 'account-id', client_secret: 'account-secret')
+      token = JWT.encode({ sub: account_id, iat: Time.current.to_i }, 'account-secret', 'HS256')
+
+      expect(verify_shopify_token(token)).to eq(account_id)
     end
 
     context 'when token is blank' do

@@ -28,17 +28,36 @@ class Webhooks::ShopifyController < ActionController::API
   end
 
   def verify_hmac!
-    secret = GlobalConfigService.load('SHOPIFY_CLIENT_SECRET', nil)
-    return head :unauthorized if secret.blank?
-
     data = request.body.read
     request.body.rewind
 
     hmac_header = request.headers['X-Shopify-Hmac-SHA256']
     return head :unauthorized if hmac_header.blank?
 
-    computed = Base64.strict_encode64(OpenSSL::HMAC.digest('SHA256', secret, data))
-    return head :unauthorized unless ActiveSupport::SecurityUtils.secure_compare(computed, hmac_header)
+    secrets = candidate_hmac_secrets
+    return head :unauthorized if secrets.empty?
+
+    authenticated = secrets.any? do |secret|
+      computed = Base64.strict_encode64(OpenSSL::HMAC.digest('SHA256', secret, data))
+      ActiveSupport::SecurityUtils.secure_compare(computed, hmac_header)
+    end
+    return if authenticated
+
+    head :unauthorized
+  end
+
+  def candidate_hmac_secrets
+    secrets = shopify_hooks(webhook_shop_domain).filter_map do |hook|
+      Shopify::Credentials.for(hook.account).client_secret
+    end
+    secrets << GlobalConfigService.load('SHOPIFY_CLIENT_SECRET', nil)
+    secrets.compact_blank.uniq
+  end
+
+  def webhook_shop_domain
+    request.headers['X-Shopify-Shop-Domain'].presence ||
+      params[:shop_domain].presence ||
+      params[:myshopify_domain]
   end
 
   def handle_shop_redact

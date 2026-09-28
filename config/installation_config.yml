@@ -465,12 +465,12 @@
   type: boolean
 - name: SHOPIFY_CLIENT_ID
   display_title: 'Shopify Client ID'
-  description: 'The Client ID (API Key) from your Shopify Partner account'
+  description: 'Default Client ID (API Key) for the installation. Accounts can override this under Settings → Integrations → Shopify.'
   locked: false
   type: secret
 - name: SHOPIFY_CLIENT_SECRET
   display_title: 'Shopify Client Secret'
-  description: 'The Client Secret (API Secret Key) from your Shopify Partner account'
+  description: 'Default Client Secret (API Secret Key) for the installation. Accounts can override this under Settings → Integrations → Shopify.'
   locked: false
   type: secret
 - name: SHOPIFY_APP_STORE_URL
