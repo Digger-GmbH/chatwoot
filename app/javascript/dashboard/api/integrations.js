@@ -39,6 +39,21 @@ class IntegrationsAPI extends ApiClient {
       shop_domain: shopDomain,
     });
   }
+
+  getShopifyCredentials() {
+    return axios.get(`${this.baseUrl()}/integrations/shopify/credentials`);
+  }
+
+  updateShopifyCredentials({ clientId, clientSecret }) {
+    return axios.put(`${this.baseUrl()}/integrations/shopify/credentials`, {
+      client_id: clientId,
+      client_secret: clientSecret,
+    });
+  }
+
+  deleteShopifyCredentials() {
+    return axios.delete(`${this.baseUrl()}/integrations/shopify/credentials`);
+  }
 }
 
 export default new IntegrationsAPI();

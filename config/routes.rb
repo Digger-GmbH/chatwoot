@@ -39,6 +39,7 @@ Rails.application.routes.draw do
   end
 
   get '/health', to: 'health#show'
+  get '/robots.txt', to: 'robots#show', format: false
   get '/api', to: 'api#index'
   namespace :api, defaults: { format: 'json' } do
     namespace :v1 do
@@ -51,6 +52,20 @@ Rails.application.routes.draw do
         end
 
         scope module: :accounts do
+          if ChatwootApp.enterprise?
+            resources :monitors, only: [:index, :show, :create, :update, :destroy] do
+              collection do
+                post :preview
+                get 'preview/:token', action: :preview_status
+              end
+              member do
+                get :timeseries
+                get :conversations
+                post :retry_evaluations
+                post :resume
+              end
+            end
+          end
           namespace :actions do
             resource :contact_merge, only: [:create]
           end
@@ -72,6 +87,7 @@ Rails.application.routes.draw do
                 get :drilldown
               end
               resource :stats, only: [], controller: :assistant_stats do
+                get :drilldown
                 get :overview
                 get :overview_summary
                 get :resolution_flow
@@ -177,6 +193,10 @@ Rails.application.routes.draw do
               resource :participants, only: [:show, :create, :update, :destroy]
               resource :direct_uploads, only: [:create]
               resource :draft_messages, only: [:show, :update, :destroy]
+              resource :suggestions, only: [] do
+                get :labels
+                get :priority
+              end
             end
             member do
               post :mute
@@ -414,6 +434,9 @@ Rails.application.routes.draw do
               collection do
                 post :auth
                 get :orders
+                get :credentials, action: :show_credentials
+                put :credentials, action: :update_credentials
+                delete :credentials, action: :destroy_credentials
               end
             end
             resource :linear, controller: 'linear', only: [] do
@@ -487,6 +510,7 @@ Rails.application.routes.draw do
             post :backup_codes
           end
           resources :sessions, only: [:index, :destroy]
+          resource :trusted_devices, only: [:destroy]
         end
       end
 
@@ -740,6 +764,9 @@ Rails.application.routes.draw do
       resources :users, only: [:index, :new, :create, :show, :edit, :update, :destroy] do
         delete :avatar, on: :member, action: :destroy_avatar
         post :resend_confirmation, on: :member
+        post :check_email_suppression, on: :member
+        post :clear_email_suppression, on: :member
+        post :send_test_email, on: :member
       end
 
       resources :access_tokens, only: [:index, :show]

@@ -63,9 +63,10 @@ class Shopify::CallbacksController < ApplicationController
   end
 
   def oauth_client
+    credentials = shopify_credentials(account)
     OAuth2::Client.new(
-      client_id,
-      client_secret,
+      credentials.client_id,
+      credentials.client_secret,
       {
         site: "https://#{params[:shop]}",
         authorize_url: '/admin/oauth/authorize',
@@ -76,10 +77,6 @@ class Shopify::CallbacksController < ApplicationController
 
   def account
     @account ||= Account.find(@account_id)
-  end
-
-  def account_id
-    @account_id ||= params[:state].split('_').first
   end
 
   def shopify_integration_url

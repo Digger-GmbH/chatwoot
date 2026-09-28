@@ -71,17 +71,13 @@ RSpec.describe Integrations::App do
       end
 
       it 'returns the App Store URL when both feature gates are enabled' do
-        allow(GlobalConfigService).to receive(:load)
-          .with('ENABLE_SHOPIFY_INTEGRATION', 'false')
-          .and_return(true)
+        create(:installation_config, name: 'ENABLE_SHOPIFY_INTEGRATION', value: true)
 
         expect(app.action).to eq('https://apps.shopify.com/chatwoot')
       end
 
       it 'does not return an action when the installation switch is disabled' do
-        allow(GlobalConfigService).to receive(:load)
-          .with('ENABLE_SHOPIFY_INTEGRATION', 'false')
-          .and_return(false)
+        InstallationConfig.where(name: 'ENABLE_SHOPIFY_INTEGRATION').first_or_initialize.update!(value: false)
 
         expect(app.action).to be_nil
       end
@@ -103,34 +99,48 @@ RSpec.describe Integrations::App do
       let(:app_name) { 'shopify' }
 
       before do
-        allow(GlobalConfigService).to receive(:load)
-          .with('ENABLE_SHOPIFY_INTEGRATION', 'false')
-          .and_return(true)
+        create(:installation_config, name: 'ENABLE_SHOPIFY_INTEGRATION', value: true)
       end
 
       it 'returns true if the shopify integration feature is enabled' do
         account.enable_features('shopify_integration')
+        allow(GlobalConfigService).to receive(:load).and_call_original
         allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_ID', nil).and_return('client_id')
+        allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_SECRET', nil).and_return('client_secret')
         expect(app.active?(account)).to be true
       end
 
       it 'returns false if the shopify integration feature is disabled' do
+        allow(GlobalConfigService).to receive(:load).and_call_original
         allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_ID', nil).and_return('client_id')
+        allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_SECRET', nil).and_return('client_secret')
         expect(app.active?(account)).to be false
       end
 
       it 'returns false if SHOPIFY_CLIENT_ID is not present, even if feature is enabled' do
         account.enable_features('shopify_integration')
+        allow(GlobalConfigService).to receive(:load).and_call_original
         allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_ID', nil).and_return(nil)
+        allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_SECRET', nil).and_return(nil)
         expect(app.active?(account)).to be false
+      end
+
+      it 'returns true when account-specific credentials are configured without global client id' do
+        account.enable_features('shopify_integration')
+        allow(GlobalConfigService).to receive(:load).and_call_original
+        allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_ID', nil).and_return(nil)
+        allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_SECRET', nil).and_return(nil)
+        create(:shopify_app_credential, account: account)
+
+        expect(app.active?(account)).to be true
       end
 
       it 'returns false if the installation switch is disabled' do
         account.enable_features('shopify_integration')
-        allow(GlobalConfigService).to receive(:load)
-          .with('ENABLE_SHOPIFY_INTEGRATION', 'false')
-          .and_return(false)
+        InstallationConfig.where(name: 'ENABLE_SHOPIFY_INTEGRATION').first_or_initialize.update!(value: false)
+        allow(GlobalConfigService).to receive(:load).and_call_original
         allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_ID', nil).and_return('client_id')
+        allow(GlobalConfigService).to receive(:load).with('SHOPIFY_CLIENT_SECRET', nil).and_return('client_secret')
 
         expect(app.active?(account)).to be false
       end

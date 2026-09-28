@@ -86,11 +86,15 @@ class Integrations::Shopify::AccessTokenService
   end
 
   def client_id
-    GlobalConfigService.load('SHOPIFY_CLIENT_ID', nil)
+    credentials.client_id
   end
 
   def client_secret
-    GlobalConfigService.load('SHOPIFY_CLIENT_SECRET', nil)
+    credentials.client_secret
+  end
+
+  def credentials
+    @credentials ||= Shopify::Credentials.for(hook.account)
   end
 
   def fallback_access_token
